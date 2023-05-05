@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="ItAintBoring.PCFControls" constructor="NToNMultiSelect" version="0.0.109" display-name-key="NToNMultiSelect" description-key="NToNMultiSelect description" control-type="standard">
+  <control namespace="ItAintBoring.PCFControls" constructor="NToNMultiSelect" version="0.0.119" display-name-key="NToNMultiSelect" description-key="NToNMultiSelect description" control-type="standard">
     <!-- property node identifies a specific, configurable piece of data that the control expects from CDS -->
     <property name="value" display-name-key="Value" description-key="Value" of-type="SingleLine.Text" usage="bound" required="true" />
     <property name="linkedEntityName" display-name-key="Linked Entity Name" description-key="Linked Entity Name" of-type="SingleLine.Text" usage="input" required="false" />
@@ -8,8 +8,8 @@
     <property name="idAttribute" display-name-key="Linked Entity ID Attribute" description-key="Linked Entity ID Attribute" of-type="SingleLine.Text" usage="input" required="false" />
     <property name="relationshipName" display-name-key="Relationship Name" description-key="Relationship Name" of-type="SingleLine.Text" usage="input" required="false" />
     <property name="relationshipEntity" display-name-key="Relationship Entity" description-key="Relationship Entity" of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="minRequiredSelections" display-name-key="Minimum Required Selections" description-key="Minimum Required Selections" of-type="SingleLine.Text" usage="input" required="false" />
-    <property name="maxRequiredSelections" display-name-key="Maximum Required Selections" description-key="Maximum Required Selections" of-type="SingleLine.Text" usage="input" required="false" />
+    <property name="minRequiredSelections" display-name-key="Minimum Required Selections" description-key="Minimum Required Selections" of-type="Whole.None" usage="input" required="false" />
+    <property name="maxRequiredSelections" display-name-key="Maximum Required Selections" description-key="Maximum Required Selections" of-type="Whole.None" usage="input" required="false" />
     <property name="linkedEntityFetchXmlResource" display-name-key="FetchXml Web Resource" description-key="Optional FetchXml web resource to select linked entity records" of-type="SingleLine.Text" usage="input" required="false" />
     
     <feature-usage>

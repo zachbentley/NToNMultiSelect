@@ -39,8 +39,13 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	private _idAttribute: string;
 	private _nameAttribute: string;
 	private _linkedEntityFetchXmlResource: string;
-	private _minRequiredSelections: string;
-	private _maxRequiredSelections: string;
+	private _minRequiredSelections: number;
+	private _maxRequiredSelections: number;
+
+	private _numRelatedSelections: number;
+	private _isError: boolean;
+	private _errorLabelText: string;
+	private labelElement: HTMLLabelElement;
 
 	private _linkedEntityCollectionName: string;
 	private _mainEntityCollectionName: string;
@@ -88,12 +93,12 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 		//debugger;
 		this.container = container;
 		this.contextObj = context;
+		this.labelElement = document.createElement("label");
 		if(typeof Xrm == 'undefined')
 		{
 			this.errorElement = document.createElement("div");
 			this.errorElement.innerHTML = "<H2>This control only works on model-driven forms!</H2>";
 			container.appendChild(this.errorElement);
-			this._isValidState = false;
 		}
 		else{
 			
@@ -167,7 +172,8 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			else{
 				this.relationshipSuccessCallback(null);
 			}
-
+			this._numRelatedSelections=this.selectedItems.length;
+			this.setErrorState();
 			var thisVar : any;
 			thisVar = this;
 			$(document).ready(function() {
@@ -181,6 +187,7 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 				});
 			});
 		}
+		
 	}
 
 	public entityMetadataSuccessCallback(value: any) : void | PromiseLike<void>
@@ -248,7 +255,26 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	public errorCallback(value: any)
 	{
 		alert(value);
-	}	
+	}
+
+	public setErrorState()
+	{
+		if(this._maxRequiredSelections != null && this._numRelatedSelections>this._maxRequiredSelections) {
+			this._errorLabelText = "This field accepts no more than " + this._maxRequiredSelections + " selections.";
+			this.labelElement.innerHTML = this._errorLabelText;
+		  	this._isError = true;
+			//this.errorCallback(this.labelElement.innerHTML);
+		} else if(this._minRequiredSelections != null && this._numRelatedSelections<this._minRequiredSelections) {
+			this._errorLabelText = "This field requires at least " + this._minRequiredSelections + " selections.";
+			this.labelElement.innerHTML = this._errorLabelText;
+		  	this._isError = true;
+			//this.errorCallback(this.labelElement.innerHTML);
+		} else {
+			this.labelElement.innerHTML = "";
+		  	this._isError = false;
+		}
+	  	
+	}
 
 	public setReadonly(): void
 	{
@@ -273,13 +299,19 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	 */
 	public getOutputs(): IOutputs
 	{
-		if(this._isValidState == false)
+		if (this._isValidState == false)
 		{
 		  return {
 			value: ""
 		  };
 		}
-		else{
+		else if (this._isError == true) {
+			this.container.appendChild(this.labelElement);
+			return {
+				value: ""
+			};
+		}
+		else {
 		  return {
 			value: "NTONDATA:"+JSON.stringify(this._relData)
 		  };
@@ -308,6 +340,7 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 				act.associate = true;
 				act.guid = id;
 				this._relData.actions.push(act);
+				this._numRelatedSelections++;
 			}
 			else{
 				for(var i=0; i < this._relData.actions.length; i++)
@@ -318,13 +351,12 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 						break;
 					}
 				}
-			
+				this._numRelatedSelections--;
 			}
-			this._notifyOutputChanged();
-			//this._value = this._relData.actions.toString();
 		}
+
 		//Control is present on an Edit or View record form
-		else{
+		else {
 			var url: string = (<any>Xrm).Utility.getGlobalContext().getClientUrl();
 			var recordUrl: string = url + "/api/data/v9.1/"+ this._mainEntityCollectionName + "(" + (<any>this.contextObj).page.entityId + ")";
 			
@@ -353,12 +385,10 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 					}
 				};
 				req.send(JSON.stringify(associate));
-		
+				this._numRelatedSelections++;		
 			}
 			else if(action == "unselect")
 			{
-
-				
 				var req = new XMLHttpRequest();
 				req.open("DELETE",url + "/api/data/v9.1/"+ this._linkedEntityCollectionName +"(" + id + ")/" + this._relationshipName + "/$ref"+"?$id="+recordUrl, true);
 				req.setRequestHeader("Accept", "application/json");
@@ -377,9 +407,11 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 					}
 				};
 				req.send();
+				this._numRelatedSelections--;
 			}
 		}
-		
+		this.setErrorState();
+		this._notifyOutputChanged();
 	}
 
 }
