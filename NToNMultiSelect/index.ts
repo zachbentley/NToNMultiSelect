@@ -18,7 +18,6 @@ class NToNData{
     actions : DataAction[];
 }
 
-
 export class NToNMultiSelect implements ComponentFramework.StandardControl<IInputs, IOutputs> {
 
 	//private _value: string;
@@ -151,8 +150,6 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			this.mainContainer.name = "states[]";
 			container.appendChild(this.mainContainer);
 
-			
-
 			this._entityMetadataSuccessCallback = this.entityMetadataSuccessCallback.bind(this);
 			this._linkedEntityMetadataSuccessCallback = this.linkedEntityMetadataSuccessCallback.bind(this);
 			this._relationshipSuccessCallback = this.relationshipSuccessCallback.bind(this);
@@ -162,7 +159,6 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			
 			(<any>Xrm).Utility.getEntityMetadata((<any>this.contextObj).page.entityTypeName,[]).then(this._entityMetadataSuccessCallback, this.errorCallback);
 			(<any>Xrm).Utility.getEntityMetadata(this._linkedEntityName,[]).then(this._linkedEntityMetadataSuccessCallback, this.errorCallback);
-			//(<any>Xrm).WebApi.retrieveMultipleRecords(this._relationshipEntity, "?$filter="+ (<any>this.contextObj).page.entityTypeName+"id eq " + (<any>this.contextObj).page.entityId, 5000).then(this._relationshipSuccessCallback, this.errorCallback);
 			
 			if((<any>this.contextObj).page.entityId != null 
 			   && (<any>this.contextObj).page.entityId != "00000000-0000-0000-0000-000000000000")
@@ -178,7 +174,7 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			thisVar = this;
 			$(document).ready(function() {
 				thisVar.setReadonly();
-				$('#'+ thisVar._ctrlId).select2().on('select2:select', function (e) {
+				$('#'+ thisVar._ctrlId).select2({closeOnSelect: false}).on('select2:select', function (e) {
 					var data = e.params.data;
 					thisVar.selectAction("select", data.id);
 				  }).on('select2:unselect', function (e) {
@@ -217,9 +213,7 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	{
 		this.addOptions(value);
 		//this.initTree();
-				
-	}	
-
+	}
 
 	public relationshipSuccessCallback(value: any) : void | PromiseLike<void>
 	{
@@ -233,18 +227,6 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 		if(this._linkedEntityFetchXmlResource != null)
 		{
 			this.contextObj.webAPI.retrieveMultipleRecords(this._linkedEntityName, "?fetchXml=" + this._linkedEntityFetchXmlResource, 5000).then(this._successCallback, this.errorCallback);
-			/*
-			var _self = this;
-			var xhttp = new XMLHttpRequest();
-			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == 200) {
-				   _self.contextObj.webAPI.retrieveMultipleRecords(_self._linkedEntityName, "?fetchXml=" + this.responseText, 5000).then(_self._successCallback, _self.errorCallback);
-				}
-			};
-			xhttp.open("GET", this._linkedEntityFetchXmlResource, true);
-			xhttp.send();
-			*/
-			
 		}
 		else
 		{
