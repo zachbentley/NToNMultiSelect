@@ -29,6 +29,8 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	private overlayDiv: HTMLDivElement;
 	private container: HTMLDivElement;
 	private _isValidState : boolean = true;
+	private optionSetItems : string[] = [];
+	private awaitingCreateNew : boolean = false;
 
 	private _relData : NToNData;
 	
@@ -40,13 +42,16 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	private _linkedEntityFetchXmlResource: string;
 	private _minRequiredSelections: number;
 	private _maxRequiredSelections: number;
-
-	private _numRelatedSelections: number;
+	private _createNew: boolean = false;
+	
+	private _numRelatedSelections: number = 0;
 	private _isError: boolean;
 	private _errorLabelText: string;
 	private labelElement: HTMLLabelElement;
 
 	private _linkedEntityCollectionName: string;
+	private _linkedEntityPrimaryColumnName: string;
+	private _linkedEntityPrimaryIdAttribute: string;
 	private _mainEntityCollectionName: string;
 	
 	private _entityMetadataSuccessCallback: any;
@@ -134,6 +139,13 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			if(context.parameters.maxRequiredSelections.raw != null){
 			  this._maxRequiredSelections = context.parameters.maxRequiredSelections.raw;
 			}
+			if(context.parameters.createNewRecords.raw != null){
+				if(context.parameters.createNewRecords.raw.toLowerCase() == "true") {
+					this._createNew = true;
+				} else {
+					this._createNew = false;
+				}
+			}
 			
 			context.mode.trackContainerResize(true);
 			container.classList.add("pcf_container_element");
@@ -154,7 +166,8 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			this._linkedEntityMetadataSuccessCallback = this.linkedEntityMetadataSuccessCallback.bind(this);
 			this._relationshipSuccessCallback = this.relationshipSuccessCallback.bind(this);
 			this._successCallback = this.successCallback.bind(this);
-			
+
+
 			this._notifyOutputChanged = notifyOutputChanged;
 			
 			(<any>Xrm).Utility.getEntityMetadata((<any>this.contextObj).page.entityTypeName,[]).then(this._entityMetadataSuccessCallback, this.errorCallback);
@@ -168,19 +181,35 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			else{
 				this.relationshipSuccessCallback(null);
 			}
-			this._numRelatedSelections=this.selectedItems.length;
+			var createRecords = this._createNew;
 			this.setErrorState();
 			var thisVar : any;
 			thisVar = this;
 			$(document).ready(function() {
 				thisVar.setReadonly();
-				$('#'+ thisVar._ctrlId).select2({closeOnSelect: false}).on('select2:select', function (e) {
+				$('#'+ thisVar._ctrlId).select2({
+					closeOnSelect: false, 
+					tags: createRecords,
+					createTag: function (params) {
+						var term = $.trim(params.term);
+						if (term === '') {
+						  return null;
+						};
+						//var newID = thisVar.createRecord(term).resolve();
+						//console.log(newID);
+						return {
+						  id: thisVar.newGuid(),
+						  text: term,
+						  newTag: true
+						}
+					  }
+				}).on('select2:select', function (e) {
 					var data = e.params.data;
-					thisVar.selectAction("select", data.id);
+					thisVar.selectAction("select", data.id, data.text);
 				  }).on('select2:unselect', function (e) {
 					var data = e.params.data;
-					thisVar.selectAction("unselect", data.id);
-				});
+					thisVar.selectAction("unselect", data.id, data.text);
+				})
 			});
 		}
 		
@@ -194,6 +223,8 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 	public linkedEntityMetadataSuccessCallback(value: any) : void | PromiseLike<void>
 	{
 		this._linkedEntityCollectionName = value.EntitySetName;
+		this._linkedEntityPrimaryColumnName = value.PrimaryNameAttribute;
+		this._linkedEntityPrimaryIdAttribute = value.PrimaryIdAttribute;
 	}
 	
 	public addOptions(value: any)
@@ -204,9 +235,9 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 
 			var checked = this.selectedItems.indexOf(<string>current[this._idAttribute]) > -1;
 			var newOption = new Option(current[this._nameAttribute], current[this._idAttribute], checked, checked);
+			this.optionSetItems.push(current[this._idAttribute]);
 	        $('#'+ this._ctrlId).append(newOption);
 		}
-
 	}
 
 	public successCallback(value: any) : void | PromiseLike<void>
@@ -222,6 +253,7 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			for(var i in value.entities)
 			{
 				this.selectedItems.push(value.entities[i][this._idAttribute]);
+				this._numRelatedSelections++;
 			}
 		}
 		if(this._linkedEntityFetchXmlResource != null)
@@ -255,7 +287,6 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			this.labelElement.innerHTML = "";
 		  	this._isError = false;
 		}
-	  	
 	}
 
 	public setReadonly(): void
@@ -309,8 +340,11 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 		// Add code to cleanup control if necessary
 	}
 
-	public selectAction(action : string, id : string)
-	{
+	public async selectAction(action : string, id : string, text : string)
+	{	
+		if(!this.optionSetItems.includes(id) && action == "select") {
+			this.createRecord(id, text);
+		}
 		//Control is present on a New record form
 		if((<any>this.contextObj).page.entityId == null
 		   || (<any>this.contextObj).page.entityId == "00000000-0000-0000-0000-000000000000")
@@ -344,6 +378,10 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			
 			if(action == "select")
 			{
+				var act = new DataAction();
+				act.associate = true;
+				act.guid = id;
+				this._relData.actions.push(act);
 				//See himbap samples here: http://himbap.com/blog/?p=2063
 				var associate = {
 					"@odata.id": recordUrl
@@ -371,6 +409,14 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 			}
 			else if(action == "unselect")
 			{
+				for(var i=0; i < this._relData.actions.length; i++)
+				{
+					var act = this._relData.actions[i];
+					if(act.guid == id){
+						this._relData.actions.splice(i,1);
+						break;
+					}
+				}
 				var req = new XMLHttpRequest();
 				req.open("DELETE",url + "/api/data/v9.1/"+ this._linkedEntityCollectionName +"(" + id + ")/" + this._relationshipName + "/$ref"+"?$id="+recordUrl, true);
 				req.setRequestHeader("Accept", "application/json");
@@ -396,4 +442,34 @@ export class NToNMultiSelect implements ComponentFramework.StandardControl<IInpu
 		this._notifyOutputChanged();
 	}
 
+	public createRecord (newGUID : string, label : string) 
+	{
+		var url: string = (<any>Xrm).Utility.getGlobalContext().getClientUrl();
+		var req = new XMLHttpRequest();
+		var primaryColumn : string = this._linkedEntityPrimaryColumnName;
+		var primaryIdAttribute : string = this._linkedEntityPrimaryIdAttribute;
+		var record = {[`${primaryColumn}`]: label, [`${primaryIdAttribute}`]: newGUID};
+		var newRecordID : string;
+		req.open("POST", url + "/api/data/v9.1/"+ this._linkedEntityCollectionName, false);
+		req.setRequestHeader("Accept", "application/json");
+		req.setRequestHeader("Content-Type", "application/json; charset=utf-8");
+		req.setRequestHeader("OData-MaxVersion", "4.0");
+		req.timeout = 5000;
+		req.setRequestHeader("OData-Version", "4.0");
+		var thisVar : any;
+		thisVar = this;
+		req.onreadystatechange = function() {
+			if (this.readyState == 4 /* complete */ ) {
+				req.onreadystatechange = null;
+					if (this.status == 204 || this.status == 201 || this.status == 200) {
+						newRecordID = (<any>this).getResponseHeader("OData-EntityId")?.toString().split("(",1)[1].replace(")","");
+						thisVar.optionSetItems.push(newRecordID);
+					} else {
+						var error = JSON.parse(this.response).error;
+						alert(error.message);
+					}
+				}
+			};
+		req.send(JSON.stringify(record));
+	}
 }
